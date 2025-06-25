@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Instagram Stories Report</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 30px; }
+        .chart-container { width: 100%; max-width: 900px; margin: 40px auto; }
+        /* Thanh cuộn ngang cho barChart (dọc) */
+        #barChartWrapper { overflow-x: auto; }
+        /* Thanh cuộn dọc cho barChartHorizontal (ngang) */
+        #barChartHorizontalWrapper { overflow-y: auto; max-height: 600px; }
+    </style>
+</head>
+<body>
+    <h1>Instagram Stories Report</h1>
+    <input type="file" id="fileInput" accept=".json,.jsonl">
+    <div style="margin: 20px 0;">
+        <label>Lọc từ ngày: <input type="date" id="fromDate"></label>
+        <label>đến: <input type="date" id="toDate"></label>
+        <label style="margin-left:20px;">Hoặc theo tháng: <input type="month" id="monthPicker"></label>
+        <label style="margin-left:20px;">Hoặc theo năm: <input type="number" id="yearPicker" min="2000" max="2100" style="width:80px;"></label>
+        <button id="filterBtn">Lọc</button>
+        <label style="margin-left:20px;">Sắp xếp:
+            <select id="sortSelect">
+                <option value="desc">Nhiều mục nhất</option>
+                <option value="asc">Ít mục nhất</option>
+            </select>
+        </label>
+        <label style="margin-left:20px;">API:
+            <select id="apiSelect">
+                <option value="">Tất cả</option>
+                <option value="get_list_fb_user_photos">get_list_fb_user_photos</option>
+                <option value="get_list_ig_user_stories">get_list_ig_user_stories</option>
+            </select>
+        </label>
+        <label style="margin-left:20px;">Top N user:
+            <input type="number" id="topN" value="20" min="1" max="1000" style="width:60px;">
+        </label>
+    </div>
+    <div class="chart-container" id="barChartWrapper">
+        <canvas id="barChart"></canvas>
+    </div>
+    <div class="chart-container" id="barChartHorizontalWrapper">
+        <canvas id="barChartHorizontal"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="stackedChart"></canvas>
+    </div>
+    <div class="chart-container">
+        <canvas id="timeChart"></canvas>
+    </div>
+    <script>
+        let rawData = [];
+        let apiUserMap = {}; // { apiName: [user, user, ...] }
+        let allApiNames = new Set();
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                let text = event.target.result.trim();
+                apiUserMap = {};
+                allApiNames = new Set();
+                let lines = text.split(/\r?\n/);
+                for (let line of lines) {
+                    try {
+                        let obj = JSON.parse(line);
+                        if (obj.apiName && Array.isArray(obj.report)) {
+                            if (!apiUserMap[obj.apiName]) apiUserMap[obj.apiName] = [];
+                            apiUserMap[obj.apiName].push(...obj.report.map(r => ({...r, _timestamp: obj.timestamp || r.timestamp || null})));
+                            allApiNames.add(obj.apiName);
+                        }
+                    } catch (e2) {}
+                }
+                // Cập nhật dropdown API theo dữ liệu thực tế
+                let apiSelect = document.getElementById('apiSelect');
+                apiSelect.innerHTML = '<option value="">Tất cả</option>' + Array.from(allApiNames).map(api => `<option value="${api}">${api}</option>`).join('');
+                // Luôn hiển thị "Tất cả" dữ liệu khi file được tải lần đầu
+                apiSelect.value = ""; // Luôn đặt dropdown về tùy chọn "Tất cả"
+                rawData = Object.values(apiUserMap).flat(); // Lấy toàn bộ dữ liệu từ tất cả API
+                renderCharts(rawData); // Vẽ biểu đồ với toàn bộ dữ liệu
+            };
+            reader.readAsText(file);
+        });
+
+        document.getElementById('filterBtn').onclick = function() {
+            applyFilterAndRender();
+        };
+        document.getElementById('sortSelect').onchange = function() {
+            applyFilterAndRender();
+        };
+        document.getElementById('apiSelect').onchange = function() {
+            let api = document.getElementById('apiSelect').value;
+            rawData = api ? (apiUserMap[api] || []) : Object.values(apiUserMap).flat();
+            applyFilterAndRender();
+        };
+        document.getElementById('topN').onchange = function() {
+            applyFilterAndRender();
+        };
+
+        function applyFilterAndRender() {
+            let from = document.getElementById('fromDate').value;
+            let to = document.getElementById('toDate').value;
+            let month = document.getElementById('monthPicker').value;
+            let year = document.getElementById('yearPicker').value;
+            let sort = document.getElementById('sortSelect').value;
+            let topN = parseInt(document.getElementById('topN').value) || 20;
+            let filtered = rawData;
+            // Ưu tiên lọc theo tháng/năm nếu có chọn
+            if (month) {
+                // month dạng yyyy-MM
+                filtered = rawData.filter(item => {
+                    if (!item._timestamp) return true;
+                    let d = new Date(item._timestamp);
+                    let m = (d.getMonth() + 1).toString().padStart(2, '0');
+                    let y = d.getFullYear();
+                    let monthStr = `${y}-${m}`;
+                    return monthStr === month;
+                });
+            } else if (year) {
+                filtered = rawData.filter(item => {
+                    if (!item._timestamp) return true;
+                    let d = new Date(item._timestamp);
+                    return d.getFullYear().toString() === year;
+                });
+            } else if (from || to) {
+                filtered = rawData.filter(item => {
+                    if (!item._timestamp) return true; // Nếu không có timestamp thì không lọc
+                    let d = new Date(item._timestamp);
+                    let ok = true;
+                    if (from) ok = ok && (d >= new Date(from));
+                    if (to) {
+                        let toDate = new Date(to);
+                        toDate.setHours(23,59,59,999);
+                        ok = ok && (d <= toDate);
+                    }
+                    return ok;
+                });
+            }
+            renderCharts(filtered, sort);
+        }
+
+        function renderCharts(data, sortDir = 'desc') {
+            if (!data.length) return alert('Không có dữ liệu hợp lệ!');
+            // Kiểm tra dữ liệu có trường username, total, have, nohave, time không
+            const validData = data.filter(item =>
+                item.username && typeof item.total === 'number' && typeof item.have === 'number' && typeof item.nohave === 'number' && typeof item.time === 'string'
+            );
+            if (!validData.length) {
+                // Xóa các biểu đồ cũ nếu có
+                if (window.barChart && typeof window.barChart.destroy === 'function') window.barChart.destroy();
+                if (window.barChartHorizontal && typeof window.barChartHorizontal.destroy === 'function') window.barChartHorizontal.destroy();
+                if (window.stackedChart && typeof window.stackedChart.destroy === 'function') window.stackedChart.destroy();
+                if (window.timeChart && typeof window.timeChart.destroy === 'function') window.timeChart.destroy();
+                // Xóa canvas
+                ['barChart','barChartHorizontal','stackedChart','timeChart'].forEach(id => {
+                    const ctx = document.getElementById(id);
+                    if (ctx) {
+                        const chartCtx = ctx.getContext('2d');
+                        chartCtx && chartCtx.clearRect(0, 0, ctx.width, ctx.height);
+                    }
+                });
+                alert('API này không hỗ trợ biểu đồ hoặc dữ liệu không hợp lệ!');
+                return;
+            }
+            // Gom nhóm theo username
+            const userMap = {};
+            validData.forEach(item => {
+                if (!userMap[item.username]) {
+                    userMap[item.username] = { total: 0, have: 0, nohave: 0, times: [] };
+                }
+                userMap[item.username].total += item.total;
+                userMap[item.username].have += item.have;
+                userMap[item.username].nohave += item.nohave;
+                // Chuyển time 'hh:mm:ss' thành giây
+                const t = item.time.split(':').map(Number);
+                const seconds = t[0]*3600 + t[1]*60 + t[2];
+                userMap[item.username].times.push(seconds);
+            });
+            let labels = Object.keys(userMap);
+            let totals = labels.map(u => userMap[u].total);
+            let haves = labels.map(u => userMap[u].have);
+            let nohaves = labels.map(u => userMap[u].nohave);
+            let avgTimes = labels.map(u => {
+                const arr = userMap[u].times;
+                return arr.length ? (arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(2) : 0;
+            });
+            // Sort theo tổng số mục
+            let zipped = labels.map((u,i) => ({u, total: totals[i], have: haves[i], nohave: nohaves[i], avg: avgTimes[i]}));
+            zipped.sort((a,b) => sortDir === 'asc' ? a.total - b.total : b.total - a.total);
+            // Lấy Top N user
+            if (topN < 1) topN = 1;
+            if (topN > zipped.length) topN = zipped.length;
+            zipped = zipped.slice(0, topN);
+            if (!zipped.length) {
+                alert('Không có dữ liệu hợp lệ!');
+                return;
+            }
+            labels = zipped.map(z => z.u);
+            totals = zipped.map(z => z.total);
+            haves = zipped.map(z => z.have);
+            nohaves = zipped.map(z => z.nohave);
+            avgTimes = zipped.map(z => z.avg);
+
+            // Destroy old charts if exist and is function
+            if (window.barChart && typeof window.barChart.destroy === 'function') window.barChart.destroy();
+            if (window.barChartHorizontal && typeof window.barChartHorizontal.destroy === 'function') window.barChartHorizontal.destroy();
+            if (window.stackedChart && typeof window.stackedChart.destroy === 'function') window.stackedChart.destroy();
+            if (window.timeChart && typeof window.timeChart.destroy === 'function') window.timeChart.destroy();
+
+            // Bar chart: Tổng số mục theo user
+            window.barChart = new Chart(document.getElementById('barChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Tổng số mục', data: totals, backgroundColor: '#36a2eb' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { display: false }, title: { display: true, text: 'Tổng số mục theo User (Cột dọc)' } },
+                    scales: { x: { ticks: { autoSkip: false } } }
+                }
+            });
+
+            // Horizontal Bar chart: Tổng số mục theo user (trục OX là tổng số mục, trục OY là username)
+            window.barChartHorizontal = new Chart(document.getElementById('barChartHorizontal'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Tổng số mục', data: totals, backgroundColor: '#36a2eb' }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    plugins: { legend: { display: false }, title: { display: true, text: 'Tổng số mục theo User (Cột ngang)' } },
+                    scales: { y: { ticks: { autoSkip: false } } }
+                }
+            });
+
+            // Stacked bar: Đã tải / Chưa tải
+            window.stackedChart = new Chart(document.getElementById('stackedChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Đã tải', data: haves, backgroundColor: '#4caf50' },
+                        { label: 'Chưa tải', data: nohaves, backgroundColor: '#f44336' }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Đã tải / Chưa tải theo User' } },
+                    scales: { x: { stacked: true, ticks: { autoSkip: false } }, y: { stacked: true } }
+                }
+            });
+
+            // Line chart: Thời gian tải trung bình (giây)
+            window.timeChart = new Chart(document.getElementById('timeChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Thời gian tải trung bình (giây)', data: avgTimes, borderColor: '#ff9800', backgroundColor: '#ffe0b2', fill: true }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { title: { display: true, text: 'Thời gian tải trung bình theo User' } },
+                    scales: { x: { ticks: { autoSkip: false } } }
+                }
+            });
+        }
+    </script>
+</body>
+</html>

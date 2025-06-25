@@ -1,0 +1,358 @@
+/*
+    reset CSS
+*/
+
+html,
+body,
+div,
+span,
+applet,
+object,
+iframe,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+a,
+abbr,
+acronym,
+address,
+big,
+cite,
+code,
+del,
+dfn,
+em,
+img,
+ins,
+kbd,
+q,
+s,
+samp,
+small,
+strike,
+strong,
+sub,
+sup,
+tt,
+var,
+b,
+u,
+i,
+center,
+dl,
+dt,
+dd,
+ol,
+ul,
+li,
+fieldset,
+form,
+label,
+legend,
+table,
+caption,
+tbody,
+tfoot,
+thead,
+tr,
+th,
+td,
+article,
+aside,
+canvas,
+details,
+embed,
+figure,
+figcaption,
+footer,
+header,
+hgroup,
+menu,
+nav,
+output,
+ruby,
+section,
+summary,
+time,
+mark,
+audio,
+video {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-size: 100%;
+  font: inherit;
+  vertical-align: baseline;
+}
+/* HTML5 display-role reset for older browsers */
+article,
+aside,
+details,
+figcaption,
+figure,
+footer,
+header,
+hgroup,
+menu,
+nav,
+section {
+  display: block;
+}
+body {
+  line-height: 1;
+}
+ol,
+ul {
+  list-style: none;
+}
+blockquote,
+q {
+  quotes: none;
+}
+blockquote:before,
+blockquote:after,
+q:before,
+q:after {
+  content: "";
+  content: none;
+}
+table {
+  border-collapse: collapse;
+  border-spacing: 0;
+}
+
+.container_up {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
+  background-color: #f4f7f6;
+  color: #333;
+  line-height: 1.6;
+}
+.container_down {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  /* max-width: 800px;
+    margin: 20px auto; */
+  padding-top: 20px;
+  background-color: #f4f7f6;
+  color: #333;
+  line-height: 1.6;
+}
+h1 {
+  text-align: center;
+  color: #0056b3;
+  margin-bottom: 30px;
+}
+.form-group {
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: bold;
+  color: #555;
+}
+input[type="text"],
+textarea,
+select {
+  width: calc(100% - 22px); /* Adjust width for padding and border */
+  padding: 10px;
+  margin-bottom: 0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+  display: block; /* Ensure select also takes full width */
+}
+select {
+  width: 100%; /* Make select take full width */
+  padding: 10px;
+}
+textarea {
+  resize: vertical;
+}
+button {
+  display: block;
+  width: 100%;
+  background-color: #007bff;
+  color: white;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1.1rem;
+  transition: background-color 0.3s ease;
+  margin-top: 20px;
+}
+button:hover {
+  background-color: #0056b3;
+}
+#result {
+  margin-top: 30px;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #e9ecef;
+  white-space: pre-wrap;
+  font-family: Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  word-break: break-all; /* Add word break for long URLs */
+}
+#loading-more-msg {
+  text-align: center;
+  font-style: italic;
+  color: #555;
+}
+#results {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(220px, 1fr)
+  ); /* Responsive grid */
+  gap: 6px;
+  padding: 10px;
+  width: 100%;
+  max-width: 100vw;
+  box-sizing: border-box;
+  justify-content: center; /* Center items in the grid */
+}
+
+.result-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 10px 0;
+  padding: 12px 8px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+  min-width: 220px; /* Ensure a minimum width */
+  max-width: 100%; /* Allow wider on smaller screens */
+  box-sizing: border-box;
+  text-align: center; /* Center text within item */
+}
+
+.result-item img,
+.result-item video {
+  max-width: 180px;
+  max-height: 180px;
+  object-fit: contain; /* Ensure media fits within bounds */
+  border-radius: 5px;
+}
+
+.result-item .carousel {
+  display: flex;
+  flex-wrap: wrap; /* Allow carousel items to wrap */
+  justify-content: center; /* Center carousel items */
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.result-item .carousel img,
+.result-item .carousel video {
+  max-width: 90px;
+  max-height: 90px;
+  object-fit: contain;
+}
+
+.result-item div,
+.result-item p,
+.result-item span {
+  width: 100%;
+  text-align: left;
+  font-size: 15px;
+  word-break: break-word;
+  padding: 0 5px; /* Add some padding to text */
+}
+
+.result-item span {
+  margin-top: 4px;
+  font-weight: bold;
+}
+
+/* New styles for status and progress messages */
+.status-message {
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 5px;
+  background-color: #e2f0e8; /* Light green for success/info */
+  color: #218838; /* Darker green */
+  font-weight: bold;
+  text-align: center;
+  display: none; /* Hidden by default, shown by JS */
+}
+
+#multi-url-progress {
+  margin-top: 20px;
+  padding: 15px;
+  border: 1px solid #d1e7dd;
+  border-radius: 8px;
+  background-color: #f0fdf4; /* Very light green */
+  max-height: 400px; /* Limit height */
+  overflow-y: auto; /* Make it scrollable */
+  display: none; /* Hidden by default, shown by JS */
+}
+
+.url-status-item {
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  background-color: #e6ffed; /* Slightly darker light green */
+  border-left: 5px solid #28a745; /* Green bar on the left */
+  border-radius: 4px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.url-status-item strong {
+  color: #0056b3; /* Highlight username */
+}
+
+.url-status-item.error {
+  background-color: #f8d7da; /* Light red for errors */
+  border-left-color: #dc3545; /* Red bar */
+  color: #721c24; /* Dark red text */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container_up,
+  .container_down {
+    margin: 10px auto;
+    padding: 10px;
+  }
+  #results {
+    grid-template-columns: repeat(
+      auto-fill,
+      minmax(180px, 1fr)
+    ); /* Smaller items on mobile */
+    gap: 4px;
+    padding: 5px;
+  }
+  .result-item {
+    min-width: 180px;
+    padding: 8px 5px;
+  }
+  .result-item img,
+  .result-item video {
+    max-width: 150px;
+    max-height: 150px;
+  }
+  .result-item .carousel img,
+  .result-item .carousel video {
+    max-width: 70px;
+    max-height: 70px;
+  }
+}

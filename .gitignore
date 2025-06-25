@@ -1,0 +1,38 @@
+# Dependencies
+/node_modules
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.log
+*.log
+
+# Misc
+.DS_Store
+.env
+.env.development
+.env.test
+.env.production
+.vscode
+*.sublime-project
+*.sublime-workspace
+
+# Build artifacts
+/dist
+/build
+/out
+
+# Temp files
+*.tmp
+*.bak
+# report-bak.html
+
+# Result files (assuming these are generated outputs)
+/result/
+/stored/
+
+# Note
+test_instagram.txt
+note_facebook.txt
+note_instagram.txt

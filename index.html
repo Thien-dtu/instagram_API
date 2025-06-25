@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facebook API Client</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div class="container_up">
+        <h1>Facebook API Client</h1>
+        <div class="form-group">
+            <label for="apiSelect">Select API:</label>
+            <select id="apiSelect" onchange="updateApiParams()">
+                <option value="get_list_fb_user_photos">get_list_fb_user_photos</option>
+                <option value="get_list_fb_user_reels">get_list_fb_user_reels</option>
+                <option value="get_list_fb_highlights">get_list_fb_highlights</option>
+                <option value="get_list_ig_post">get_list_ig_post</option>
+                <option value="get_list_ig_user_stories">get_list_ig_user_stories</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="apiParams">API Parameters (JSON):</label>
+            <textarea id="apiParams" rows="6">{
+                "url": "https://www.facebook.com/trang.quach.526875",
+                "type": "5",
+                "cursor": ""
+            }
+            </textarea>
+            <small>Nhập nhiều URL Facebook, mỗi dòng 1 URL hoặc cách nhau bằng dấu phẩy (ví dụ: "url":
+                "url1,url2,...")</small>
+        </div>
+        <button onclick="makeApiCallMultiUrl()">Make API Call</button>
+        <button id="downloadAllBtn" style="display: none; margin-top: 20px;" onclick="downloadAll()">Tải về tất cả ảnh
+            và chú thích</button>
+
+        <!-- New elements for status and progress -->
+        <div id="overall-status" class="status-message"></div>
+        <div id="multi-url-progress"></div>
+    </div>
+    <div class="container_down">
+        <div id="results">Results will appear here...</div>
+    </div>
+    <script src="script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+</body>
+
+</html>

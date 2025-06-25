@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Instagram Stories Report</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 30px; }
+    .chart-container { width: 100%; max-width: 900px; margin: 40px auto; }
+  </style>
+</head>
+<body>
+  <h1>Instagram Stories Report</h1>
+  <input type="file" id="fileInput" accept=".json,.jsonl">
+  <div style="margin: 20px 0;">
+    <label>Lọc từ ngày: <input type="date" id="fromDate"></label>
+    <label>đến: <input type="date" id="toDate"></label>
+    <label style="margin-left:20px;">Hoặc theo tháng: <input type="month" id="monthPicker"></label>
+    <label style="margin-left:20px;">Hoặc theo năm: <input type="number" id="yearPicker" min="2000" max="2100" style="width:80px;"></label>
+    <button id="filterBtn">Lọc</button>
+    <label style="margin-left:20px;">Sắp xếp:
+      <select id="sortSelect">
+        <option value="desc">Nhiều mục nhất</option>
+        <option value="asc">Ít mục nhất</option>
+      </select>
+    </label>
+    <label style="margin-left:20px;">API:
+      <select id="apiSelect"><option value="">Tất cả</option></select>
+    </label>
+  </div>
+
+  <div class="chart-container"><canvas id="barChart"></canvas></div>
+  <div class="chart-container"><canvas id="barChartHorizontal"></canvas></div>
+  <div class="chart-container"><canvas id="stackedChart"></canvas></div>
+  <div class="chart-container"><canvas id="timeChart"></canvas></div>
+
+  <script>
+    let rawData = [];
+    let allReports = [];
+    let allTimestamps = [];
+
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+
+      reader.onload = function(event) {
+        let text = event.target.result.trim();
+        allReports = [];
+        allTimestamps = [];
+
+        function addReports(obj) {
+          if (Array.isArray(obj.report)) {
+            obj.report.forEach(r => {
+              allReports.push({ ...r, apiName: obj.apiName || obj.api });
+              allTimestamps.push(obj.timestamp || r.timestamp || null);
+            });
+          }
+        }
+
+        try {
+          let obj = JSON.parse(text);
+          if (Array.isArray(obj)) {
+            obj.forEach(addReports);
+          } else {
+            addReports(obj);
+          }
+        } catch (e) {
+          let lines = text.split(/\r?\n/);
+          for (let line of lines) {
+            try {
+              let obj = JSON.parse(line);
+              addReports(obj);
+            } catch (e2) {}
+          }
+        }
+
+        rawData = allReports.map((r, idx) => {
+          return { ...r, _timestamp: allTimestamps[idx] || null };
+        });
+
+        // Populate API dropdown
+        const apiSet = new Set(rawData.map(r => r.apiName).filter(Boolean));
+        const apiSelect = document.getElementById('apiSelect');
+        apiSet.forEach(api => {
+          const opt = document.createElement('option');
+          opt.value = api;
+          opt.textContent = api;
+          apiSelect.appendChild(opt);
+        });
+
+        renderCharts(rawData);
+      };
+      reader.readAsText(file);
+    });
+
+    document.getElementById('filterBtn').onclick = applyFilterAndRender;
+    document.getElementById('sortSelect').onchange = applyFilterAndRender;
+    document.getElementById('apiSelect').onchange = applyFilterAndRender;
+
+    function applyFilterAndRender() {
+      let from = document.getElementById('fromDate').value;
+      let to = document.getElementById('toDate').value;
+      let month = document.getElementById('monthPicker').value;
+      let year = document.getElementById('yearPicker').value;
+      let sort = document.getElementById('sortSelect').value;
+      let api = document.getElementById('apiSelect').value;
+
+      let filtered = rawData;
+
+      if (month) {
+        filtered = rawData.filter(item => {
+          if (!item._timestamp) return true;
+          let d = new Date(item._timestamp);
+          let m = (d.getMonth() + 1).toString().padStart(2, '0');
+          let y = d.getFullYear();
+          return `${y}-${m}` === month;
+        });
+      } else if (year) {
+        filtered = rawData.filter(item => {
+          if (!item._timestamp) return true;
+          return new Date(item._timestamp).getFullYear().toString() === year;
+        });
+      } else if (from || to) {
+        filtered = rawData.filter(item => {
+          if (!item._timestamp) return true;
+          let d = new Date(item._timestamp);
+          if (from && d < new Date(from)) return false;
+          if (to) {
+            let toDate = new Date(to);
+            toDate.setHours(23, 59, 59, 999);
+            if (d > toDate) return false;
+          }
+          return true;
+        });
+      }
+
+      if (api) {
+        filtered = filtered.filter(item => item.apiName === api);
+      }
+
+      renderCharts(filtered, sort);
+    }
+
+    function renderCharts(data, sortDir = 'desc') {
+      if (!data.length) return alert('Không có dữ liệu hợp lệ!');
+      const userMap = {};
+      data.forEach(item => {
+        if (!userMap[item.username]) {
+          userMap[item.username] = { total: 0, have: 0, nohave: 0, times: [] };
+        }
+        userMap[item.username].total += item.total;
+        userMap[item.username].have += item.have;
+        userMap[item.username].nohave += item.nohave;
+        const t = item.time.split(':').map(Number);
+        const seconds = t[0]*3600 + t[1]*60 + t[2];
+        userMap[item.username].times.push(seconds);
+      });
+
+      let labels = Object.keys(userMap);
+      let zipped = labels.map(u => {
+        const t = userMap[u];
+        const avg = t.times.length ? (t.times.reduce((a,b) => a+b,0)/t.times.length).toFixed(2) : 0;
+        return { u, ...t, avg };
+      });
+
+      zipped.sort((a,b) => sortDir === 'asc' ? a.total - b.total : b.total - a.total);
+      labels = zipped.map(z => z.u);
+      const totals = zipped.map(z => z.total);
+      const haves = zipped.map(z => z.have);
+      const nohaves = zipped.map(z => z.nohave);
+      const avgTimes = zipped.map(z => z.avg);
+
+      // Destroy old charts if needed
+      ['barChart','barChartHorizontal','stackedChart','timeChart'].forEach(id => {
+        if (window[id] && typeof window[id].destroy === 'function') window[id].destroy();
+      });
+
+      window.barChart = new Chart(document.getElementById('barChart'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Tổng số mục', data: totals, backgroundColor: '#36a2eb' }] },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, title: { display: true, text: 'Tổng số mục theo User (Cột dọc)' } },
+          scales: { x: { ticks: { autoSkip: false } } }
+        }
+      });
+
+      window.barChartHorizontal = new Chart(document.getElementById('barChartHorizontal'), {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Tổng số mục', data: totals, backgroundColor: '#36a2eb' }] },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          plugins: { legend: { display: false }, title: { display: true, text: 'Tổng số mục theo User (Cột ngang)' } },
+          scales: { y: { ticks: { autoSkip: false } } }
+        }
+      });
+
+      window.stackedChart = new Chart(document.getElementById('stackedChart'), {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Đã tải', data: haves, backgroundColor: '#4caf50' },
+            { label: 'Chưa tải', data: nohaves, backgroundColor: '#f44336' }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: 'Đã tải / Chưa tải theo User' } },
+          scales: { x: { stacked: true, ticks: { autoSkip: false } }, y: { stacked: true } }
+        }
+      });
+
+      window.timeChart = new Chart(document.getElementById('timeChart'), {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            { label: 'Thời gian tải trung bình (giây)', data: avgTimes, borderColor: '#ff9800', backgroundColor: '#ffe0b2', fill: true }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { title: { display: true, text: 'Thời gian tải trung bình theo User' } },
+          scales: { x: { ticks: { autoSkip: false } } }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
