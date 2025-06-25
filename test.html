@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Data Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const App = () => {
+            const defaultFilters = {
+                apiName: '',
+                date: '',
+                usernames: [],
+                topN: 99999,
+                sortBy: 'total',
+                sortOrder: 'desc',
+                searchUsername: ''
+            };
+
+            const [data, setData] = React.useState([]);
+            const [filters, setFilters] = React.useState(defaultFilters);
+            const [chartData, setChartData] = React.useState(null);
+            const chartRef = React.useRef(null);
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const text = e.target.result;
+                        const parsedData = text
+                            .split('\n')
+                            .filter(line => line.trim())
+                            .map(line => {
+                                try {
+                                    return JSON.parse(line);
+                                } catch (error) {
+                                    console.error('Error parsing JSON line:', line, error);
+                                    return null;
+                                }
+                            })
+                            .filter(item => item !== null);
+                        setData(parsedData);
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const uniqueApis = [...new Set(data.map(item => item.apiName))];
+            const uniqueUsernames = [...new Set(data.flatMap(item => item.report.map(r => r.username)))];
+
+            const filterData = () => {
+                let filtered = data;
+
+                if (filters.apiName) {
+                    filtered = filtered.filter(item => item.apiName === filters.apiName);
+                }
+
+                if (filters.date) {
+                    filtered = filtered.filter(item => {
+                        const itemDate = moment(item.timestamp);
+                        return itemDate.format('YYYY-MM-DD') === filters.date ||
+                               itemDate.format('YYYY-MM') === filters.date ||
+                               itemDate.format('YYYY') === filters.date;
+                    });
+                }
+
+                if (filters.usernames.length > 0 && !filters.usernames.includes('all')) {
+                    filtered = filtered.filter(item =>
+                        item.report.some(r => filters.usernames.includes(r.username))
+                    );
+                }
+
+                if (filters.searchUsername) {
+                    filtered = filtered.filter(item =>
+                        item.report.some(r =>
+                            r.username.toLowerCase().includes(filters.searchUsername.toLowerCase())
+                        )
+                    );
+                }
+
+                let flatReports = filtered.flatMap(item =>
+                    item.report.map(r => ({ ...r, timestamp: item.timestamp, apiName: item.apiName }))
+                );
+
+                flatReports.sort((a, b) => {
+                    const valueA = a[filters.sortBy];
+                    const valueB = b[filters.sortBy];
+                    return filters.sortOrder === 'desc'
+                        ? valueB - valueA
+                        : valueA - valueB;
+                });
+
+                return flatReports.slice(0, filters.topN);
+            };
+
+            React.useEffect(() => {
+                if (data.length > 0) {
+                    const filteredData = filterData();
+                    setChartData({
+                        labels: filteredData.map(item => item.username),
+                        datasets: [{
+                            label: 'Total Posts',
+                            data: filteredData.map(item => item.total),
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1
+                        }]
+                    });
+                }
+            }, [data, filters]);
+
+            React.useEffect(() => {
+                if (chartData && chartRef.current) {
+                    const ctx = chartRef.current.getContext('2d');
+                    const chart = new Chart(ctx, {
+                        type: 'bar',
+                        data: chartData,
+                        options: {
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+
+                    return () => chart.destroy();
+                }
+            }, [chartData]);
+
+            const handleFilterChange = (key, value) => {
+                if (key === 'usernames' && value.includes('all')) {
+                    setFilters(prev => ({ ...prev, usernames: ['all'] }));
+                } else {
+                    setFilters(prev => ({ ...prev, [key]: value }));
+                }
+            };
+
+            const handleResetFilters = () => {
+                setFilters(defaultFilters);
+            };
+
+            return (
+                <div className="container mx-auto p-4">
+                    <h1 className="text-2xl font-bold mb-4">Social Media Data Dashboard</h1>
+
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700">Upload JSONL File</label>
+                        <input
+                            type="file"
+                            accept=".jsonl"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                            onChange={handleFileUpload}
+                        />
+                    </div>
+
+                    {data.length > 0 && (
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">API Name</label>
+                                    <select
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.apiName}
+                                        onChange={e => handleFilterChange('apiName', e.target.value)}
+                                    >
+                                        <option value="">All APIs</option>
+                                        {uniqueApis.map(api => (
+                                            <option key={api} value={api}>{api}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Date</label>
+                                    <input
+                                        type="date"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.date}
+                                        onChange={e => handleFilterChange('date', e.target.value)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Top N Users</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.topN}
+                                        onChange={e => handleFilterChange('topN', parseInt(e.target.value) || 10)}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Sort By</label>
+                                    <select
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.sortBy}
+                                        onChange={e => handleFilterChange('sortBy', e.target.value)}
+                                    >
+                                        <option value="total">Total</option>
+                                        <option value="have">Have</option>
+                                        <option value="nohave">No Have</option>
+                                        <option value="pages">Pages</option>
+                                    </select>
+                                    <select
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.sortOrder}
+                                        onChange={e => handleFilterChange('sortOrder', e.target.value)}
+                                    >
+                                        <option value="desc">Descending</option>
+                                        <option value="asc">Ascending</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="mb-4 flex gap-4">
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700">Search Username</label>
+                                    <input
+                                        type="text"
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.searchUsername}
+                                        onChange={e => handleFilterChange('searchUsername', e.target.value)}
+                                        placeholder="Enter username to search"
+                                    />
+                                </div>
+                                <div className="flex-1">
+                                    <label className="block text-sm font-medium text-gray-700">Usernames</label>
+                                    <select
+                                        multiple
+                                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+                                        value={filters.usernames}
+                                        onChange={e => handleFilterChange('usernames', Array.from(e.target.selectedOptions).map(o => o.value))}
+                                    >
+                                        <option value="all">All Usernames</option>
+                                        {uniqueUsernames.map(username => (
+                                            <option key={username} value={username}>{username}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="flex items-end">
+                                    <button
+                                        className="mt-1 px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                        onClick={handleResetFilters}
+                                    >
+                                        Reset Filters
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="mb-4">
+                                <canvas id="myChart" ref={chartRef}></canvas>
+                            </div>
+
+                            <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">API</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Have</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No Have</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pages</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {filterData().map((item, index) => (
+                                            <tr key={index}>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.username}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.apiName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.total}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.have}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.nohave}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.time}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.pages}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{item.timestamp}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        };
+
+        ReactDOM.render(<App />, document.getElementById('root'));
+    </script>
+</body>
+</html>

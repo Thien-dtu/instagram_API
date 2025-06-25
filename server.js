@@ -443,7 +443,7 @@ app.post('/save-ig-user-stories-report', async (req, res) => {
     if (!apiName || !Array.isArray(report) || !timestamp) {
         return res.status(400).json({ error: 'Missing apiName, report, or timestamp' });
     }
-    const filePath = path.join(__dirname, 'result', `ig_user_stories_reportl`);
+    const filePath = path.join(__dirname, 'result', `ig_user_stories_report.jsonl`);
     try {
         fs.mkdirSync(path.dirname(filePath), { recursive: true });
         fs.appendFileSync(filePath, JSON.stringify({ apiName, report, timestamp }) + '\n', 'utf8');
