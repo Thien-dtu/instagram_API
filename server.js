@@ -454,6 +454,53 @@ app.post('/save-ig-user-stories-report', async (req, res) => {
     }
 });
 
+// --- DELETE REPORT ENTRY ENDPOINT ---
+// POST /delete-report-entry
+// Body: { timestamp, username, apiName, total, have, nohave, time, pages }
+app.post('/delete-report-entry', async (req, res) => {
+    const { timestamp, username, apiName, total, have, nohave, time, pages } = req.body;
+    const filePath = path.join(__dirname, 'result', 'ig_user_stories_report.jsonl');
+    if (!timestamp || !username || !apiName) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+    try {
+        const lines = fs.readFileSync(filePath, 'utf8').split('\n').filter(Boolean);
+        let changed = false;
+        const newLines = lines.map(line => {
+            let obj;
+            try { obj = JSON.parse(line); } catch { return line; }
+            if (obj.timestamp !== timestamp || obj.apiName !== apiName) return line;
+            // Remove the matching report entry from the report array
+            if (!Array.isArray(obj.report)) return line;
+            const newReport = obj.report.filter(r => {
+                return !(
+                    r.username === username &&
+                    r.total === total &&
+                    r.have === have &&
+                    r.nohave === nohave &&
+                    r.time === time &&
+                    r.pages === pages
+                );
+            });
+            if (newReport.length !== obj.report.length) {
+                changed = true;
+                obj.report = newReport;
+            }
+            // Only keep the line if there are still reports left
+            return obj.report.length > 0 ? JSON.stringify(obj) : null;
+        }).filter(Boolean);
+        if (changed) {
+            fs.writeFileSync(filePath, newLines.join('\n') + '\n', 'utf8');
+            return res.json({ message: 'Entry deleted.' });
+        } else {
+            return res.status(404).json({ error: 'Entry not found.' });
+        }
+    } catch (e) {
+        console.error('Error deleting report entry:', e);
+        return res.status(500).json({ error: 'Server error.' });
+    }
+});
+
 const server = app.listen(port, () => {
     console.log('🌐 Server running on port ' + port);
 });
