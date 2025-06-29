@@ -36,3 +36,6 @@ yarn-error.log*
 test_instagram.txt
 note_facebook.txt
 note_instagram.txt
+
+# Test files
+followings.json

@@ -500,6 +500,9 @@ async function makeApiCallMultiUrl() {
         }).length;
         const noHaveItemsForUrl = totalItemsForUrl - haveItemsForUrl;
 
+        // Collect all IDs for this fetch
+        const idsForUrl = fetchedData.map(item => item.id).filter(Boolean);
+
         const reportData = {
             apiName,
             report: [{
@@ -508,6 +511,7 @@ async function makeApiCallMultiUrl() {
                 total: totalItemsForUrl,
                 have: haveItemsForUrl,
                 nohave: noHaveItemsForUrl,
+                ids: idsForUrl, // <-- Save all IDs for this fetch
                 time: durationUrlStr,
                 pages: pagesLoaded
             }],

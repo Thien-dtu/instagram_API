@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -11,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/moment@2.29.4/moment.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
+
 <body>
     <div id="root"></div>
     <script type="text/babel">
@@ -68,8 +70,8 @@
                     filtered = filtered.filter(item => {
                         const itemDate = moment(item.timestamp);
                         return itemDate.format('YYYY-MM-DD') === filters.date ||
-                               itemDate.format('YYYY-MM') === filters.date ||
-                               itemDate.format('YYYY') === filters.date;
+                            itemDate.format('YYYY-MM') === filters.date ||
+                            itemDate.format('YYYY') === filters.date;
                     });
                 }
 
@@ -272,6 +274,7 @@
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Have</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">No Have</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IDs</th> {/* Add this */}
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pages</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
@@ -285,6 +288,14 @@
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.total}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.have}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.nohave}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    {Array.isArray(item.ids)
+                                                        ? item.ids.length > 0
+                                                            ? item.ids.join(', ')
+                                                            : <span className="text-gray-400 italic">No IDs</span>
+                                                        : <span className="text-gray-400 italic">No IDs</span>
+                                                    }
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.time}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.pages}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.timestamp}</td>
@@ -302,4 +313,5 @@
         ReactDOM.render(<App />, document.getElementById('root'));
     </script>
 </body>
+
 </html>
