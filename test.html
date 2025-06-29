@@ -151,6 +151,61 @@
                 setFilters(defaultFilters);
             };
 
+            // Helper: get selected month from filters or default to current month
+            const selectedMonth = filters.date
+                ? moment(filters.date).format('YYYY-MM')
+                : moment().format('YYYY-MM');
+
+            // Helper: Calculate unique post IDs per user for the selected month
+            function getMonthlyUniquePostCounts() {
+                const userIdSet = {};
+                data.forEach(item => {
+                    const itemMonth = moment(item.timestamp).format('YYYY-MM');
+                    if (itemMonth === selectedMonth) {
+                        item.report.forEach(r => {
+                            if (!userIdSet[r.username]) userIdSet[r.username] = new Set();
+                            if (Array.isArray(r.ids)) {
+                                r.ids.forEach(id => userIdSet[r.username].add(id));
+                            }
+                        });
+                    }
+                });
+                // Return { username: count }
+                return Object.fromEntries(
+                    Object.entries(userIdSet).map(([username, idSet]) => [username, idSet.size])
+                );
+            }
+
+            // Helper: Calculate filtered and sorted unique post counts for the summary table
+            function getFilteredMonthlyUniquePostCounts() {
+                const userIdSet = {};
+                data.forEach(item => {
+                    // Filter by API Name
+                    if (filters.apiName && item.apiName !== filters.apiName) return;
+                    const itemMonth = moment(item.timestamp).format('YYYY-MM');
+                    if (itemMonth === selectedMonth) {
+                        item.report.forEach(r => {
+                            // Filter by search username
+                            if (filters.searchUsername && !r.username.toLowerCase().includes(filters.searchUsername.toLowerCase())) return;
+                            if (!userIdSet[r.username]) userIdSet[r.username] = new Set();
+                            if (Array.isArray(r.ids)) {
+                                r.ids.forEach(id => userIdSet[r.username].add(id));
+                            }
+                        });
+                    }
+                });
+                // Convert to array for sorting and top N
+                let arr = Object.entries(userIdSet).map(([username, idSet]) => ({
+                    username,
+                    count: idSet.size
+                }));
+                // Sort
+                arr.sort((a, b) => filters.sortOrder === 'desc' ? b.count - a.count : a.count - b.count);
+                // Top N
+                arr = arr.slice(0, filters.topN || 10);
+                return arr;
+            }
+
             return (
                 <div className="container mx-auto p-4">
                     <h1 className="text-2xl font-bold mb-4">Social Media Data Dashboard</h1>
@@ -359,6 +414,52 @@
                                                         }}
                                                     >Delete</button>
                                                 </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Monthly Unique Post Count Table */}
+                            {/*<div className="mt-8">
+                                <h2 className="text-xl font-bold mb-2">Monthly Unique Post Count (by IDs)</h2>
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unique Posts</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {Object.entries(getMonthlyUniquePostCounts()).map(([username, count]) => (
+                                            <tr key={username}>
+                                                <td className="px-6 py-4 whitespace-nowrap">{username}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{selectedMonth}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{count}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div> */}
+
+                            {/* Filtered and Sorted Monthly Unique Post Count Table */}
+                            <div className="mt-8">
+                                <h2 className="text-xl font-bold mb-2">Filtered Monthly Unique Post Count (by IDs)</h2>
+                                <table className="min-w-full divide-y divide-gray-200">
+                                    <thead className="bg-gray-50">
+                                        <tr>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Username</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unique Posts</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {getFilteredMonthlyUniquePostCounts().map(({ username, count }) => (
+                                            <tr key={username}>
+                                                <td className="px-6 py-4 whitespace-nowrap">{username}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{selectedMonth}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{count}</td>
                                             </tr>
                                         ))}
                                     </tbody>
