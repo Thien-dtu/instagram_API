@@ -277,7 +277,8 @@
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IDs</th> {/* Add this */}
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
                                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Pages</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp (UTC+7)</th>
+                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="bg-white divide-y divide-gray-200">
@@ -298,7 +299,66 @@
                                                 </td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.time}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap">{item.pages}</td>
-                                                <td className="px-6 py-4 whitespace-nowrap">{item.timestamp}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{
+                                                    (() => {
+                                                        // Convert timestamp to UTC+7
+                                                        try {
+                                                            const date = new Date(item.timestamp);
+                                                            // Get UTC+7 by adding 7*60*60*1000 ms
+                                                            const utc7 = new Date(date.getTime() + 7 * 60 * 60 * 1000);
+                                                            return utc7.toLocaleString('en-GB', { hour12: false });
+                                                        } catch (e) {
+                                                            return item.timestamp;
+                                                        }
+                                                    })()
+                                                }</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <button
+                                                        className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                                                        onClick={async () => {
+                                                            // Call backend to delete entry from file
+                                                            const payload = {
+                                                                timestamp: item.timestamp,
+                                                                username: item.username,
+                                                                apiName: item.apiName,
+                                                                total: item.total,
+                                                                have: item.have,
+                                                                nohave: item.nohave,
+                                                                time: item.time,
+                                                                pages: item.pages
+                                                            };
+                                                            try {
+                                                                const res = await fetch('http://localhost:3000/delete-report-entry', {
+                                                                    method: 'POST',
+                                                                    headers: { 'Content-Type': 'application/json' },
+                                                                    body: JSON.stringify(payload)
+                                                                });
+                                                                if (res.ok) {
+                                                                    setData(prevData => {
+                                                                        let found = false;
+                                                                        const newData = prevData.map(d => {
+                                                                            if (!d.report) return d;
+                                                                            const newReport = d.report.filter((r, i) => {
+                                                                                if (!found && d.apiName === item.apiName && d.timestamp === item.timestamp && r.username === item.username && r.total === item.total && r.have === item.have && r.nohave === item.nohave && r.time === item.time && r.pages === item.pages) {
+                                                                                    found = true;
+                                                                                    return false;
+                                                                                }
+                                                                                return true;
+                                                                            });
+                                                                            return { ...d, report: newReport };
+                                                                        }).filter(d => d.report && d.report.length > 0);
+                                                                        return newData;
+                                                                    });
+                                                                } else {
+                                                                    const err = await res.json();
+                                                                    alert('Delete failed: ' + (err.error || 'Unknown error'));
+                                                                }
+                                                            } catch (e) {
+                                                                alert('Delete failed: ' + e.message);
+                                                            }
+                                                        }}
+                                                    >Delete</button>
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
